@@ -1,14 +1,18 @@
-import 'dart:async';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
-import 'package:image_picker/image_picker.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:recognize_solution/camera_app.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  cameras = await availableCameras();
   runApp(const MyApp());
 }
+
+late List<CameraDescription> cameras;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -21,98 +25,99 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  final String title;
-
-  const MyHomePage({super.key, required this.title});
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final _completer = Completer<bool>();
-
-  late final Interpreter _interpreter;
-
-  late final Tensor _inputTensor, _outputTensor;
+  img.Image? _croppedImage;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-          ],
-        ),
-      ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
+        onPressed: () async {
+          final res = await Navigator.push<XFile>(context,
+              MaterialPageRoute(builder: (context) => const CameraApp()));
+
+          if (res != null) {
+            final values = await res.readAsBytes();
+            _loadAndCropImage(values);
+          }
+        },
         child: const Icon(Icons.add),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: _croppedImage == null
+              ? const Text('No Image')
+              : Image.memory(Uint8List.fromList(img.encodePng(_croppedImage!))),
+        ),
       ),
     );
   }
 
   @override
-  void dispose() {
-    super.dispose();
-  }
-
-  Future<void> initData() async {
-    final options = InterpreterOptions();
-    _interpreter = await Interpreter.fromAsset('assets/model_unquant.tflite',
-        options: options);
-    // Get tensor input shape [1, 224, 224, 3]
-    _inputTensor = _interpreter.getInputTensors().first;
-    // Get tensor output shape [1, 1001]
-    _outputTensor = _interpreter.getOutputTensors().first;
-
-    _completer.complete(true);
-  }
-
-  @override
   void initState() {
-    initData();
     super.initState();
   }
 
-  void _incrementCounter() async {
-    final ImagePicker picker = ImagePicker();
+  // Color _calculateAverageColor(img.Image image) {
+  //   image.getColor(r, g, b)
+  //   int red = 0;
+  //   int green = 0;
+  //   int blue = 0;
+  //   int pixelCount = image.width * image.height;
 
-    final photo = await picker.pickImage(source: ImageSource.camera);
-    await _completer.future;
-    if (kDebugMode) {
-      print('PATH---->${photo?.path}');
-    }
-    if (photo != null) {
-      final bytes = await photo.readAsBytes();
-      img.Image imageInput = img.decodeImage(bytes)!;
-      img.Image resizedImage =
-          img.copyResize(imageInput, width: 224, height: 224);
+  //   for (int y = 0; y < image.height; y++) {
+  //     for (int x = 0; x < image.width; x++) {
+  //       int pixel = image.getPixel(x, y);
+  //       red += img.getRed(pixel);
+  //       green += img.getGreen(pixel);
+  //       blue += img.getBlue(pixel);
+  //     }
+  //   }
 
-      // Normalize the image pixels to be between 0 and 1
-      var normalizedImage =
-          resizedImage.getBytes().map((pixel) => pixel / 255.0).toList();
+  //   red = (red / pixelCount).round();
+  //   green = (green / pixelCount).round();
+  //   blue = (blue / pixelCount).round();
 
-      // Convert the normalized image to Float32List
-      Float32List inputImage = Float32List.fromList(normalizedImage);
-      Float32List output = Float32List(1 * 1000);
-      _interpreter.run(inputImage, output);
-      print('DONE---->${output.toString()}');
+  //   return Color.fromRGBO(red, green, blue, 1.0);
+  // }
+
+  void _loadAndCropImage(Uint8List bytes) async {
+    // Load your image
+
+    // Decode the image
+    img.Image image = img.decodeImage(bytes)!;
+
+    // Calculate crop dimensions
+    int cropWidth = (image.width / 2).round();
+    int cropHeight = cropWidth;
+    int offsetX = (image.width / 4).round();
+    int offsetY = (image.height / 2 - cropHeight / 2).round();
+
+    // Crop the image
+    img.Image croppedImage = img.copyCrop(image,
+        x: offsetX, y: offsetY, width: cropWidth, height: cropHeight);
+    setState(() {
+      _croppedImage = croppedImage;
+    });
+    if (_croppedImage != null) {
+      final x = (image.width / 2).round();
+      final y = (image.width / 2).round();
+      final color = _croppedImage!.getPixelInterpolate(
+        x,
+        y,
+      );
     }
   }
 }

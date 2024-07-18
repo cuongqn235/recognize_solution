@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'dart:ui';
+
 class AppColors {
   static List<AppColors> get values => [
         AppColors(value: 0.01, red: 141, green: 145, blue: 135),
@@ -28,4 +31,26 @@ class AppColors {
     required this.green,
     required this.blue,
   });
+  Color get color => Color.fromARGB(255, red, green, blue);
+  double distanceTo(Color other) {
+    return sqrt(pow(red - other.red, 2) +
+        pow(green - other.green, 2) +
+        pow(blue - other.blue, 2));
+  }
+
+  // Phương thức tìm màu gần nhất
+  static AppColors findClosest(Color target) {
+    AppColors? closest;
+    double minDistance = double.infinity;
+
+    for (var color in values) {
+      double distance = color.distanceTo(target);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closest = color;
+      }
+    }
+
+    return closest!;
+  }
 }

@@ -1,4 +1,5 @@
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:recognize_solution/main.dart';
 
@@ -51,6 +52,17 @@ class OverlayPainter extends CustomPainter {
       ),
       borderPaint,
     );
+    final outerPath2 = Path();
+    outerPath2
+      ..moveTo(screenWidth / 4, screenHeight / 2)
+      ..lineTo(screenWidth / 4 * 3, screenHeight / 2);
+    canvas.drawPath(outerPath2, borderPaint);
+    final outerPath3 = Path();
+    outerPath3
+      ..moveTo(screenWidth / 2, screenHeight / 2)
+      ..lineTo(screenWidth / 2, screenHeight / 2 - (screenWidth / 4))
+      ..lineTo(screenWidth / 2, screenHeight / 2 + (screenWidth / 4));
+    canvas.drawPath(outerPath3, borderPaint);
   }
 
   @override
@@ -69,7 +81,7 @@ class _CameraAppState extends State<CameraApp> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Camera App'),
+        title: const Text('Camera'),
       ),
       body: Column(
         children: [
@@ -85,9 +97,25 @@ class _CameraAppState extends State<CameraApp> {
                       screenHeight: MediaQuery.of(context).size.width / 6 * 10,
                     ),
                   ),
+                  Positioned(
+                    top: 20,
+                    left: 16,
+                    right: 16,
+                    child: Text(
+                      'Focus color to the center',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium!
+                          .copyWith(color: Colors.white),
+                    ),
+                  ),
                 ],
               ),
             ),
+          ),
+          const SizedBox(
+            height: 20,
           ),
           ElevatedButton(
             onPressed: () async {
@@ -97,7 +125,9 @@ class _CameraAppState extends State<CameraApp> {
                   Navigator.pop(context, image);
                 }
               } catch (e) {
-                print(e);
+                if (kDebugMode) {
+                  print(e);
+                }
               }
             },
             child: const Text('Take Picture'),

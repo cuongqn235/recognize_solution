@@ -40,6 +40,14 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   img.Image? _croppedImage;
 
+  Color? _color;
+
+  int abgrToArgb(int argbColor) {
+    int r = (argbColor >> 16) & 0xFF;
+    int b = argbColor & 0xFF;
+    return (argbColor & 0xFF00FF00) | (b << 16) | r;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -50,16 +58,69 @@ class _MyHomePageState extends State<MyHomePage> {
 
           if (res != null) {
             final values = await res.readAsBytes();
-            _loadAndCropImage(values);
+            if (context.mounted) {
+              _loadAndCropImage(context, values);
+            }
           }
         },
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.camera_alt),
       ),
       body: SafeArea(
         child: Center(
           child: _croppedImage == null
               ? const Text('No Image')
-              : Image.memory(Uint8List.fromList(img.encodePng(_croppedImage!))),
+              : Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  fit: StackFit.expand,
+                  children: [
+                    Image.memory(
+                      Uint8List.fromList(img.encodePng(_croppedImage!)),
+                      fit: BoxFit.fitWidth,
+                    ),
+                    if (_color != null)
+                      Positioned(
+                        top: 50,
+                        left: 16,
+                        right: 16,
+                        child: ColoredBox(
+                          color: Colors.white,
+                          child: Column(
+                            children: [
+                              Container(
+                                height: 50,
+                                width: 100,
+                                color: _color,
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Red:${_color!.red}',
+                                    style:
+                                        Theme.of(context).textTheme.titleLarge,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Green:${_color!.green}',
+                                    style:
+                                        Theme.of(context).textTheme.titleLarge,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Blue:${_color!.blue}',
+                                    style:
+                                        Theme.of(context).textTheme.titleLarge,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                  ],
+                ),
         ),
       ),
     );
@@ -70,54 +131,34 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
   }
 
-  // Color _calculateAverageColor(img.Image image) {
-  //   image.getColor(r, g, b)
-  //   int red = 0;
-  //   int green = 0;
-  //   int blue = 0;
-  //   int pixelCount = image.width * image.height;
-
-  //   for (int y = 0; y < image.height; y++) {
-  //     for (int x = 0; x < image.width; x++) {
-  //       int pixel = image.getPixel(x, y);
-  //       red += img.getRed(pixel);
-  //       green += img.getGreen(pixel);
-  //       blue += img.getBlue(pixel);
-  //     }
-  //   }
-
-  //   red = (red / pixelCount).round();
-  //   green = (green / pixelCount).round();
-  //   blue = (blue / pixelCount).round();
-
-  //   return Color.fromRGBO(red, green, blue, 1.0);
-  // }
-
-  void _loadAndCropImage(Uint8List bytes) async {
+  void _loadAndCropImage(BuildContext context, Uint8List bytes) async {
+    // final center = context.size!.center(Offset.zero);
     // Load your image
 
     // Decode the image
     img.Image image = img.decodeImage(bytes)!;
 
-    // Calculate crop dimensions
-    int cropWidth = (image.width / 2).round();
-    int cropHeight = cropWidth;
-    int offsetX = (image.width / 4).round();
-    int offsetY = (image.height / 2 - cropHeight / 2).round();
+    // // Calculate crop dimensions
+    // int cropWidth = (image.width / 2).round();
+    // int cropHeight = cropWidth;
+    // int offsetX = (image.width / 4).round();
+    // int offsetY = (image.height / 2 - cropHeight / 2).round();
 
-    // Crop the image
-    img.Image croppedImage = img.copyCrop(image,
-        x: offsetX, y: offsetY, width: cropWidth, height: cropHeight);
+    // // Crop the image
+    // img.Image croppedImage = img.copyCrop(image,
+    //     x: offsetX, y: offsetY, width: cropWidth, height: cropHeight);
     setState(() {
-      _croppedImage = croppedImage;
+      _croppedImage = image;
     });
     if (_croppedImage != null) {
       final x = (image.width / 2).round();
-      final y = (image.width / 2).round();
-      final color = _croppedImage!.getPixelInterpolate(
-        x,
-        y,
-      );
+      final y = (image.height / 2).round();
+      final color = image.getPixelSafe(x, y);
+      print('With====> : ${color.width}---${color.height}');
+      setState(() {
+        _color = Color.fromARGB(
+            255, color.r.toInt(), color.g.toInt(), color.b.toInt());
+      });
     }
   }
 }
